@@ -35,8 +35,8 @@ class Conv1d(minitorch.Module):
 
     def forward(self, input):
         # TODO: Implement for Task 4.5.
-        raise NotImplementedError("Need to implement for Task 4.5")
-
+        # raise NotImplementedError("Need to implement for Task 4.5")
+        return minitorch.conv1d(input, self.weights.value) + self.bias.value
 
 class CNNSentimentKim(minitorch.Module):
     """
@@ -62,15 +62,28 @@ class CNNSentimentKim(minitorch.Module):
         super().__init__()
         self.feature_map_size = feature_map_size
         # TODO: Implement for Task 4.5.
-        raise NotImplementedError("Need to implement for Task 4.5")
+        # raise NotImplementedError("Need to implement for Task 4.5")
+        self.conv1d1 = Conv1d(embedding_size, feature_map_size, filter_sizes[0])
+        self.conv1d2 = Conv1d(embedding_size, feature_map_size, filter_sizes[1])
+        self.conv1d3 = Conv1d(embedding_size, feature_map_size, filter_sizes[2])
+        self.linear = Linear(self.feature_map_size, 1)
+        self.dropout = dropout
 
     def forward(self, embeddings):
         """
         embeddings tensor: [batch x sentence length x embedding dim]
         """
         # TODO: Implement for Task 4.5.
-        raise NotImplementedError("Need to implement for Task 4.5")
-
+        # raise NotImplementedError("Need to implement for Task 4.5")
+        embeddings = embeddings.permute(0, 2, 1)
+        h1 = self.conv1.forward(embeddings).relu()
+        h2 = self.conv2.forward(embeddings).relu()
+        h3 = self.conv3.forward(embeddings).relu()
+        h_mid = minitorch.nn.max(h1, dim=2) + minitorch.nn.max(h2, dim=2) + minitorch.nn.max(h3, dim=2)
+        h_mid = h_mid.view(h_mid.shape[0], h_mid.shape[1])
+        h = self.linear(h_mid)
+        h = minitorch.nn.dropout(h, self.dropout)
+        return h.sigmoid().view(embeddings.shape[0])
 
 # Evaluation helper methods
 def get_predictions_array(y_true, model_output):
@@ -250,6 +263,58 @@ def encode_sentiment_data(dataset, pretrained_embeddings, N_train, N_val=0):
     print(f"missing pre-trained embedding for {len(unks)} unknown words")
 
     return (X_train, y_train), (X_val, y_val)
+
+
+def load_glove_embeddings(path="data/glove.6B.50d.txt"):
+    """Load GloVe embeddings from local file"""
+    word2emb = {}
+    with open(path, 'r', encoding='utf-8') as f:
+        for line in f:
+            values = line.split()
+            word = values[0]
+            vector = [float(x) for x in values[1:]]
+            word2emb[word] = vector
+    return word2emb
+
+# # Then use it like:
+# embeddings = GloveEmbedding(word2emb)
+# # Replace the embeddings initialization line with:
+# word2emb = load_glove_embeddings()
+
+class GloveEmbedding:
+    """Simple wrapper class to mimic the original GloveEmbedding interface."""
+    
+    def __init__(self, word2emb):
+        self.word2emb = word2emb
+        # Get embedding dimension from first entry
+        self.d_emb = len(next(iter(word2emb.values())))
+        
+    def emb(self, word, default=None):
+        """Get embedding for a word.
+        
+        Args:
+        ----
+            word: Word to get embedding for
+            default: Default value if word not found
+            
+        Returns:
+        -------
+            list: Embedding vector
+        """
+        return self.word2emb.get(word, default)
+    
+    def __contains__(self, word):
+        """Support for 'in' operator.
+        
+        Args:
+        ----
+            word: Word to check
+            
+        Returns:
+        -------
+            bool: True if word is in embeddings
+        """
+        return word in self.word2emb
 
 
 if __name__ == "__main__":
